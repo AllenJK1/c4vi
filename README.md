@@ -65,12 +65,12 @@ c4vi allows you to fine-tune how and when autocomplete popups appear to match yo
 
 Here are the primary configurations, their impacts, and use cases:
 
-| Combination | `config.json` Settings | Visual & Editing Impact | Best For |
-| :--- | :--- | :--- | :--- |
-| **1. Full Autocomplete** | `"autocomplete_enabled": true`<br>`"auto_trigger": true`<br>`"trigger_on_methods_only": false` | Autocomplete menu pops up automatically on every keystroke (letters, numbers, underscores, operators). | Users who want maximum speed and real-time guidance as they type. |
-| **2. Method-Only Trigger** | `"autocomplete_enabled": true`<br>`"auto_trigger": true`<br>`"trigger_on_methods_only": true` | Autocomplete ONLY triggers automatically when you type a member/method access symbol (`.` or `->`). | Users who want a clean typing flow, but want instant help discovering struct fields and methods. |
-| **3. Manual Trigger** | `"autocomplete_enabled": true`<br>`"auto_trigger": false`<br>`"trigger_on_methods_only": false` | The popup never appears automatically. You must explicitly press `<C-Space>` in insert mode to show completions. | Traditional Vim users who find automated menus distracting but still want autocomplete on demand. |
-| **4. Completion Disabled** | `"autocomplete_enabled": false`<br>`"auto_trigger": false`<br>`"trigger_on_methods_only": false` | Autocomplete features are fully disabled. No popups or triggers are active. | Users using external autocomplete plugins or who only want LSP hover tooltips and diagnostic highlights. |
+| Combination | `config.json` Settings | Visual & Editing Impact | 
+| :--- | :--- | :--- |
+| **1. Full Autocomplete** | `"autocomplete_enabled": true`<br>`"auto_trigger": true`<br>`"trigger_on_methods_only": false` | Autocomplete menu pops up automatically on every keystroke (letters, numbers, underscores, operators). |
+| **2. Method-Only Trigger** | `"autocomplete_enabled": true`<br>`"auto_trigger": true`<br>`"trigger_on_methods_only": true` | Autocomplete ONLY triggers automatically when you type a member/method access symbol (`.` or `->`). | 
+| **3. Manual Trigger** | `"autocomplete_enabled": true`<br>`"auto_trigger": false`<br>`"trigger_on_methods_only": false` | The popup never appears automatically. You must explicitly press `<C-Space>` in insert mode to show completions. | 
+| **4. Completion Disabled** | `"autocomplete_enabled": false`<br>`"auto_trigger": false`<br>`"trigger_on_methods_only": false` | Autocomplete features are fully disabled. No popups or triggers are active. |
 
 ### Tab Navigation Settings
 Configure how you navigate and confirm items in the autocomplete popup:
