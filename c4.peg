@@ -1,0 +1,280 @@
+# Maintainer: Allen
+# Description: PEG grammar for the C4 language.
+
+
+
+
+Program         <- _ Declaration* EOF
+
+
+
+Declaration     <- UseDecl
+                 / ForeignDecl
+                 / FunctionDecl
+                 / StructDecl
+                 / EnumDecl
+                 / SumDecl
+                 / UnionDecl
+                 / ImplDecl
+                 / VariableDecl
+                 / ConstDecl
+                 / TypeDecl
+
+UseDecl         <- "use" _ ModulePath _ "as" _ Ident _ NEWLINE
+
+ForeignDecl     <- "foreign" _ StringLiteral _ ":" _ ForeignItem* _ ":"
+
+ForeignItem     <- "fn" _ Ident _ "(" _ ForeignArgList? _ ")" _ ("->" _ Type _)? NEWLINE
+
+ForeignArgList  <- ForeignArg _ ("," _ ForeignArg _)*  ("," _ "..." _)?
+                 / "..."
+
+ForeignArg      <- "const"? _ Type _ Ident?
+
+FunctionDecl    <- "pub"? _ "fn" _ Ident _ GenericParams? _ "(" _ FunctionArgList? _ ")" _ ("->" _ Type _)? ":" _ Block _ ":"
+
+FunctionArgList <- FunctionArg _ ("," _ FunctionArg _)*
+
+FunctionArg     <- Type _ Ident
+
+StructDecl      <- "pub"? _ "struct" _ Ident _ GenericParams? _ ":" _ StructProperty* _ ":"
+
+StructProperty  <- "pub"? _ Type _ Ident _ NEWLINE
+
+UnionDecl       <- "pub"? _ "union" _ Ident _ ":" _ StructProperty* _ ":"
+
+EnumDecl        <- "pub"? _ "enum" _ Ident _ ":" _ EnumConstant* _ ":"
+
+EnumConstant    <- Ident _ ("=" _ Expression _)? NEWLINE
+
+SumDecl         <- "pub"? _ "sum" _ Ident _ ":" _ SumVariant* _ ":"
+
+SumVariant      <- Ident _ SumVariantBody? _ NEWLINE
+
+SumVariantBody  <- "(" _ SumTupleField _ ("," _ SumTupleField _)* _ ")"   
+                 / "{" _ SumNamedField _ ("," _ SumNamedField _)* _ "}"   
+
+SumTupleField   <- Type
+
+SumNamedField   <- Type _ Ident
+
+ImplDecl        <- "impl" _ Ident _ GenericParams? _ ":" _ FunctionDecl* _ ":"
+
+TypeDecl        <- "pub"? _ "type" _ Ident _ "=" _ Type _ NEWLINE
+
+ConstDecl       <- "pub"? _ "const" _ Type _ Ident _ "=" _ Expression _ NEWLINE
+
+VariableDecl    <- "pub"? _ Type _ Ident _ ("=" _ VarInit _)? NEWLINE
+
+VarInit         <- "{" _ VarInitElement _ ("," _ VarInitElement _)* _ "}"  
+                 / Expression                                                
+
+VarInitElement  <- VarInit / Expression
+
+
+
+GenericParams   <- "<" _ Ident _ ("," _ Ident _)* _ ">"
+
+GenericArgs     <- "<" _ Type  _ ("," _ Type  _)* _ ">"
+
+
+
+Type            <- PointerType
+                 / ArrayType
+                 / FunctionType
+                 / GenericType
+                 / PrimitiveType
+                 / AggregateType
+
+PointerType     <- Type _ "*"
+
+ArrayType       <- Type _ "[" _ Expression? _ "]"
+
+FunctionType    <- "fn" _ "(" _ TypeList? _ ")" _ ("->" _ Type)?
+
+GenericType     <- Ident _ GenericArgs
+
+PrimitiveType   <- "u8" / "u16" / "u32" / "u64"
+                 / "i8" / "i16" / "i32" / "i64"
+                 / "f32" / "f64"
+                 / "char" / "str" / "bool" / "void"
+
+AggregateType   <- Ident _ ("::" _ Ident _)*
+
+TypeList        <- Type _ ("," _ Type _)*
+
+
+
+Block           <- Statement*
+
+Statement       <- ReturnStmt
+                 / BreakStmt
+                 / ContinueStmt
+                 / WhileStmt
+                 / LoopStmt
+                 / IfStmt
+                 / MatchStmt
+                 / VariableDeclStmt
+                 / ExpressionStmt
+
+ReturnStmt      <- "return" _ Expression? _ NEWLINE
+
+BreakStmt       <- "break" _ NEWLINE
+
+ContinueStmt    <- "continue" _ NEWLINE
+
+WhileStmt       <- "while" _ Expression _ ":" _ Block _ ":"
+
+LoopStmt        <- "loop" _ ":" _ Block _ ":"
+
+IfStmt          <- "if" _ Expression _ ":" _ Block _ ":"
+                   ElifClause*
+                   ElseClause?
+
+ElifClause      <- "elif" _ Expression _ ":" _ Block _ ":"
+
+ElseClause      <- "else" _ ":" _ Block _ ":"
+
+MatchStmt       <- "match" _ Expression _ ":" _ MatchArm* _ ":"
+
+MatchArm        <- MatchPattern _ ":" _ Block _ ":"
+
+MatchPattern    <- PathExpr _ ("(" _ MatchBindList? _ ")")?
+                 / "_"
+
+MatchBindList   <- Ident _ ("," _ Ident _)*
+
+VariableDeclStmt <- Type _ Ident _ ("=" _ VarInit)? _ NEWLINE
+
+ExpressionStmt  <- Expression _ NEWLINE
+
+
+
+Expression      <- AssignmentExpr
+
+AssignmentExpr  <- UnaryExpr _ AssignOp _ AssignmentExpr
+                 / LogicalOrExpr
+
+AssignOp        <- "=" / "+=" / "-=" / "*=" / "/=" / "%="
+                 / "&=" / "|=" / "^=" / "<<=" / ">>="
+
+LogicalOrExpr   <- LogicalAndExpr _ ("or" _ LogicalAndExpr _)*
+
+LogicalAndExpr  <- BitwiseOrExpr _ ("and" _ BitwiseOrExpr _)*
+
+BitwiseOrExpr   <- BitwiseXorExpr _ ("|" _ BitwiseXorExpr _)*
+
+BitwiseXorExpr  <- BitwiseAndExpr _ ("^" _ BitwiseAndExpr _)*
+
+BitwiseAndExpr  <- EqualityExpr _ ("&" _ EqualityExpr _)*
+
+EqualityExpr    <- RelationalExpr _ (("==" / "!=") _ RelationalExpr _)*
+
+RelationalExpr  <- ShiftExpr _ (("<=" / ">=" / "<" / ">") _ ShiftExpr _)*
+
+ShiftExpr       <- AdditionExpr _ (("<<" / ">>") _ AdditionExpr _)*
+
+AdditionExpr    <- MultiplyExpr _ (("+" / "-") _ MultiplyExpr _)*
+
+MultiplyExpr    <- AsExpr _ (("*" / "/" / "%") _ AsExpr _)*
+
+AsExpr          <- UnaryExpr _ ("as" _ Type _)*
+
+UnaryExpr       <- UnaryOp _ UnaryExpr
+                 / PostfixExpr
+
+UnaryOp         <- "not" / "-" / "*" / "&" / "~"
+
+PostfixExpr     <- PrimaryExpr PostfixOp*
+
+PostfixOp       <- "->" _ Ident _ ("(" _ ArgList? _ ")")?   
+                 / "." _ Ident _ ("(" _ ArgList? _ ")")?    
+                 / "[" _ Expression _ "]"                    
+                 / "(" _ ArgList? _ ")"                      
+
+PrimaryExpr     <- Literal
+                 / SizeOfExpr
+                 / AlignOfExpr
+                 / PointerExpr
+                 / PathExpr
+                 / VariableExpr
+                 / ParenExpr
+                 / ArrayInitExpr
+
+SizeOfExpr      <- "sizeof" _ "(" _ Type _ ")"
+
+AlignOfExpr     <- "alignof" _ "(" _ Type _ ")"
+
+PointerExpr     <- Expression _ "@read" _ "(" _ ")"
+                 / Expression _ "@write" _ "(" _ Expression _ ")"
+                 / Expression _ "@advance" _ "(" _ Expression _ ")"
+                 / Expression _ "@offset"  _ "(" _ Expression _ ")"
+                 / Expression _ "@diff"    _ "(" _ Expression _ ")"
+
+PathExpr        <- Ident _ ("::" _ Ident _)+ _ ("(" _ ArgList? _ ")")?
+
+VariableExpr    <- Ident _ ("(" _ ArgList? _ ")")?
+
+ParenExpr       <- "(" _ Expression _ ")"
+
+ArrayInitExpr   <- "{" _ ArgList? _ "}"
+
+ArgList         <- Expression _ ("," _ Expression _)*
+
+
+
+Literal         <- FloatLiteral
+                 / IntLiteral
+                 / BoolLiteral
+                 / NullLiteral
+                 / CharLiteral
+                 / StringLiteral
+
+IntLiteral      <- HexLiteral / DecLiteral
+
+HexLiteral      <- "0x" [0-9a-fA-F]+
+
+DecLiteral      <- [0-9]+
+
+FloatLiteral    <- [0-9]+ "." [0-9]+
+
+BoolLiteral     <- "true" / "false"
+
+NullLiteral     <- "null"
+
+CharLiteral     <- "'" CharChar "'"
+
+CharChar        <- "\\" EscapeSeq / !["'\\] .
+
+StringLiteral   <- '"' StringChar* '"'
+
+StringChar      <- "\\" EscapeSeq / !["\\\n] .
+
+EscapeSeq       <- [ntr0\\'"abfv] / "x" [0-9a-fA-F] [0-9a-fA-F]
+
+
+
+ModulePath      <- Ident _ ("::" _ Ident _)*
+
+
+
+Ident           <- !Keyword [a-zA-Z_] [a-zA-Z0-9_]*
+
+Keyword         <- ("use" / "foreign" / "fn" / "struct" / "enum" / "sum"
+                 /  "union" / "impl" / "type" / "const" / "pub" / "return"
+                 /  "if" / "elif" / "else" / "while" / "loop" / "match"
+                 /  "break" / "continue" / "and" / "or" / "not" / "as"
+                 /  "sizeof" / "alignof" / "null" / "true" / "false"
+                 /  PrimitiveType) ![a-zA-Z0-9_]
+
+
+
+_               <- (Whitespace / Comment)*
+
+Whitespace      <- [ \t\r\n]+
+
+Comment         <- "//" (![\n] .)* "\n"?
+
+NEWLINE         <- _   
+
+EOF             <- !.

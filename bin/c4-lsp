@@ -1,0 +1,663 @@
+#!/usr/bin/env python3
+import sys
+import json
+import re
+import os
+
+                                                                            
+LOG_FILE = "/tmp/c4_lsp.log"
+def log(msg):
+    try:
+        with open(LOG_FILE, "a") as f:
+            f.write(str(msg) + "\n")
+    except:
+        pass
+
+                                                     
+vfs = {}
+
+                                             
+                                                                         
+C4_KEYWORDS = [
+    "use", "foreign", "fn", "struct", "enum", "sum", "union", "impl", "type", "const", "pub", "as",
+    "if", "elif", "else", "while", "loop", "match", "return", "break", "continue", "and", "or", "not",
+    "sizeof", "alignof", "true", "false", "null", "self"
+]
+C4_TYPES = [
+    "u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f32", "f64", "char", "str", "bool", "void"
+]
+C4_INTRINSICS = [
+    "@read", "@write", "@advance", "@offset", "@diff"
+]
+
+def get_imported_symbols(current_file_uri, mod_path):
+    symbols = []
+    try:
+        if current_file_uri.startswith("file://"):
+            current_path = current_file_uri[7:]
+        else:
+            current_path = current_file_uri
+            
+        current_dir = os.path.dirname(current_path)
+        parts = mod_path.split("::")
+        
+                                             
+        rel_path_1 = os.path.join(current_dir, *parts) + ".c4"
+        rel_path_2 = os.path.join(current_dir, parts[-1]) + ".c4"
+        
+        target_path = None
+        if os.path.isfile(rel_path_1):
+            target_path = rel_path_1
+        elif os.path.isfile(rel_path_2):
+            target_path = rel_path_2
+            
+        if target_path:
+            with open(target_path, "r") as f:
+                content = f.read()
+            funcs = re.findall(r'\bfn\s+([a-zA-Z_][a-zA-Z0-9_]*)\b', content)
+            types = re.findall(r'\b(?:struct|enum|sum|union|type)\s+([a-zA-Z_][a-zA-Z0-9_]*)\b', content)
+            symbols.extend(funcs)
+            symbols.extend(types)
+    except Exception as e:
+        log(f"Error resolving import {mod_path}: {e}")
+    return symbols
+
+def get_current_func(text, cursor_line):
+    lines = text.splitlines()
+    in_func = False
+    func_name = ""
+    block_depth = 0
+    
+    for idx, line in enumerate(lines):
+        clean_line = re.sub(r'//.*$', '', line)
+        clean_line_stripped = clean_line.strip()
+        
+        if not in_func:
+            fn_match = re.match(r'^\s*(?:pub\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(', clean_line)
+            if fn_match:
+                in_func = True
+                func_name = fn_match.group(1)
+                block_depth = 1
+        else:
+            if clean_line_stripped.endswith(":") and clean_line_stripped != ":":
+                block_depth += 1
+            elif clean_line_stripped == ":":
+                block_depth -= 1
+                if block_depth == 0:
+                    in_func = False
+                    
+        if idx == cursor_line:
+            if in_func:
+                return func_name
+            break
+    return None
+
+def resolve_var_type(text, func_name, var_name):
+                                                                            
+    if var_name == "self":
+        lines = text.splitlines()
+        current_impl = None
+        in_impl = False
+        impl_depth = 0
+        in_func = False
+        block_depth = 0
+        
+        for line in lines:
+            clean_line = re.sub(r'//.*$', '', line)
+            clean_line_stripped = clean_line.strip()
+            
+            if not in_impl:
+                impl_match = re.match(r'^\s*impl\s+([a-zA-Z_][a-zA-Z0-9_]*)', clean_line)
+                if impl_match:
+                    in_impl = True
+                    current_impl = impl_match.group(1)
+                    impl_depth = 1
+            else:
+                if not in_func:
+                    fn_match = re.match(r'^\s*(?:pub\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(', clean_line)
+                    if fn_match:
+                        if fn_match.group(1) == func_name:
+                            return current_impl + "*"                                           
+                        in_func = True
+                        block_depth = 1
+                    
+                    if clean_line_stripped.endswith(":") and clean_line_stripped != ":":
+                        impl_depth += 1
+                    elif clean_line_stripped == ":":
+                        impl_depth -= 1
+                        if impl_depth == 0:
+                            in_impl = False
+                            current_impl = None
+                else:
+                    if clean_line_stripped.endswith(":") and clean_line_stripped != ":":
+                        block_depth += 1
+                    elif clean_line_stripped == ":":
+                        block_depth -= 1
+                        if block_depth == 0:
+                            in_func = False
+                            
+                                         
+    lines = text.splitlines()
+    in_func = False
+    block_depth = 0
+    
+    for line in lines:
+        clean_line = re.sub(r'//.*$', '', line)
+        clean_line = re.sub(r'".*?"', '', clean_line)
+        clean_line = re.sub(r"'.*?'", '', clean_line)
+        clean_line_stripped = clean_line.strip()
+        
+        if not in_func:
+            fn_match = re.match(r'^\s*(?:pub\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)', clean_line)
+            if fn_match and fn_match.group(1) == func_name:
+                in_func = True
+                block_depth = 1
+                arg_list = fn_match.group(2)
+                args = arg_list.split(",")
+                for arg in args:
+                    words_in_arg = re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', arg)
+                    if words_in_arg and words_in_arg[-1] == var_name:
+                        return re.sub(r'\b' + var_name + r'\b', '', arg).strip()
+        else:
+            if clean_line_stripped.endswith(":") and clean_line_stripped != ":":
+                block_depth += 1
+            elif clean_line_stripped == ":":
+                block_depth -= 1
+                if block_depth == 0:
+                    break
+            
+                                                                                   
+            decl_match = re.match(r'^\s*([a-zA-Z0-9_<>*\[\]:]+)\s*(\*+)?\s*([a-zA-Z_][a-zA-Z0-9_]*)(?:\s*=\s*(.+))?$', clean_line_stripped)
+            if decl_match and decl_match.group(3) == var_name:
+                return (decl_match.group(1) + (decl_match.group(2) or "")).strip()
+                
+                                           
+    global_vars = re.findall(r'^(?:pub\s+)?(?:const\s+)?([a-zA-Z0-9_<>*\[\]:]+)\s*(\*+)?\s*([a-zA-Z_][a-zA-Z0-9_]*)\b', text, re.MULTILINE)
+    for t_name, stars, name in global_vars:
+        if name == var_name:
+            return (t_name + (stars or "")).strip()
+            
+    return None
+
+def parse_impls_in_text(text, base_type):
+    methods = []
+    base_name = base_type.split("::")[-1]
+    
+    lines = text.splitlines()
+    in_impl = False
+    block_depth = 0
+    
+    for line in lines:
+        clean_line = re.sub(r'//.*$', '', line)
+        clean_line_stripped = clean_line.strip()
+        
+        if not in_impl:
+            impl_match = re.match(r'^\s*impl\s+([a-zA-Z_][a-zA-Z0-9_]*)', clean_line)
+            if impl_match and (impl_match.group(1) == base_type or impl_match.group(1) == base_name):
+                in_impl = True
+                block_depth = 1
+        else:
+            if clean_line_stripped.endswith(":") and clean_line_stripped != ":":
+                block_depth += 1
+            elif clean_line_stripped == ":":
+                block_depth -= 1
+                if block_depth == 0:
+                    in_impl = False
+                    continue
+            
+            fn_match = re.match(r'^\s*(?:pub\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)\b', clean_line)
+            if fn_match:
+                methods.append(fn_match.group(1))
+                
+    return methods
+
+def get_impl_methods(current_file_uri, base_type):
+    methods = []
+    text = vfs.get(current_file_uri, "")
+    methods.extend(parse_impls_in_text(text, base_type))
+    
+                   
+    imports = re.findall(r'\buse\s+([a-zA-Z0-9_:]+)\s+as\s+([a-zA-Z_][a-zA-Z0-9_]*)\b', text)
+    for mod_path, _ in imports:
+        if current_file_uri.startswith("file://"):
+            current_path = current_file_uri[7:]
+        else:
+            current_path = current_file_uri
+        current_dir = os.path.dirname(current_path)
+        parts = mod_path.split("::")
+        rel_path_1 = os.path.join(current_dir, *parts) + ".c4"
+        rel_path_2 = os.path.join(current_dir, parts[-1]) + ".c4"
+        
+        target_path = None
+        if os.path.isfile(rel_path_1):
+            target_path = rel_path_1
+        elif os.path.isfile(rel_path_2):
+            target_path = rel_path_2
+            
+        if target_path:
+            try:
+                with open(target_path, "r") as f:
+                    content = f.read()
+                methods.extend(parse_impls_in_text(content, base_type))
+            except:
+                pass
+                
+    return list(set(methods))
+
+def get_completions(uri, line, char):
+    text = vfs.get(uri, "")
+    lines = text.splitlines()
+    if line >= len(lines):
+        return {"isIncomplete": False, "items": []}
+        
+    cur_line = lines[line][:char]
+    
+                                                                       
+    member_match = re.search(r'([a-zA-Z_][a-zA-Z0-9_]*)(?:\.|->)$', cur_line)
+    if member_match:
+        var_name = member_match.group(1)
+        func_name = get_current_func(text, line)
+        completions = []
+        if func_name:
+            var_type = resolve_var_type(text, func_name, var_name)
+            if var_type:
+                                                                     
+                base_type = re.sub(r'<.*?>|[*\[\]\s]', '', var_type)
+                methods = get_impl_methods(uri, base_type)
+                for m in methods:
+                    completions.append({"label": m, "kind": 2})              
+        return {"isIncomplete": False, "items": completions}
+                
+                             
+    completions = []
+    
+    for kw in C4_KEYWORDS:
+        completions.append({"label": kw, "kind": 14})
+    for t in C4_TYPES:
+        completions.append({"label": t, "kind": 25, "detail": "type"})
+    for intr in C4_INTRINSICS:
+        completions.append({"label": intr, "kind": 3})
+        
+    funcs = re.findall(r'\bfn\s+([a-zA-Z_][a-zA-Z0-9_]*)', text)
+    for fn in set(funcs):
+        completions.append({"label": fn, "kind": 3})
+        
+    types = re.findall(r'\b(?:struct|enum|sum|union|type)\s+([a-zA-Z_][a-zA-Z0-9_]*)', text)
+    for t in set(types):
+        completions.append({"label": t, "kind": 25, "detail": "type"})
+        
+    imports = re.findall(r'\buse\s+([a-zA-Z0-9_:]+)\s+as\s+([a-zA-Z_][a-zA-Z0-9_]*)\b', text)
+    for mod_path, alias in imports:
+        imported_symbols = get_imported_symbols(uri, mod_path)
+        for sym in imported_symbols:
+            completions.append({"label": f"{alias}::{sym}", "kind": 3})
+
+    all_words = re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', text)
+    for word in set(all_words):
+        if word not in C4_KEYWORDS and word not in C4_TYPES:
+            if word not in funcs and word not in types and word not in [alias for _, alias in imports]:
+                completions.append({"label": word, "kind": 6})
+
+    return {"isIncomplete": False, "items": completions}
+
+def get_hover(uri, line, char):
+    text = vfs.get(uri, "")
+    lines = text.splitlines()
+    if line >= len(lines):
+        return None
+    
+    cur_line = lines[line]
+    words = re.finditer(r'@?[a-zA-Z_0-9]+', cur_line)
+    word = ""
+    for m in words:
+        if m.start() <= char <= m.end():
+            word = m.group(0)
+            break
+            
+    if not word:
+        return None
+        
+    hover_docs = {
+        "@read": "### C4 Intrinsic: `@read`\nReads the value stored at the pointer address.\n\n**Syntax:**\n`ptr @read()` -> `T`",
+        "@write": "### C4 Intrinsic: `@write`\nWrites a value to the pointer address.\n\n**Syntax:**\n`ptr @write(value)` -> `void`",
+        "@advance": "### C4 Intrinsic: `@advance`\nAdvances the pointer by the given element offset (scaled by type size).\n\n**Syntax:**\n`ptr @advance(offset)` -> `T*`",
+        "@offset": "### C4 Intrinsic: `@offset`\nCalculates byte offset relative to the pointer.\n\n**Syntax:**\n`ptr @offset(bytes)` -> `T*`",
+        "@diff": "### C4 Intrinsic: `@diff`\nCalculates pointer difference.\n\n**Syntax:**\n`ptr1 @diff(ptr2)` -> `i64`",
+        "sizeof": "### C4 Operator: `sizeof`\nReturns the size of the given type in bytes.\n\n**Syntax:**\n`sizeof(Type)` -> `u64`",
+        "alignof": "### C4 Operator: `alignof`\nReturns the alignment of the given type in bytes.\n\n**Syntax:**\n`alignof(Type)` -> `u64`",
+    }
+    
+    if word in hover_docs:
+        return {
+            "contents": {
+                "kind": "markdown",
+                "value": hover_docs[word]
+            }
+        }
+        
+                                                   
+    fn_sig_match = re.search(r'^\s*(?:pub\s+)?(fn\s+' + re.escape(word) + r'\s*\(.*?\)[^:]*:\s*$)', text, re.MULTILINE)
+    if fn_sig_match:
+        sig = fn_sig_match.group(1).strip()
+        sig = re.sub(r'\s*:\s*$', '', sig)                           
+        return {
+            "contents": {
+                "kind": "markdown",
+                "value": f"```c4\n{sig}\n```"
+            }
+        }
+        
+                                           
+    func_name = get_current_func(text, line)
+    if func_name:
+        var_type = resolve_var_type(text, func_name, word)
+        if var_type:
+            return {
+                "contents": {
+                    "kind": "markdown",
+                    "value": f"```c4\n(variable) {word}: {var_type}\n```"
+                }
+            }
+            
+                                                                    
+    type_match = re.search(r'^\s*(?:pub\s+)?((?:struct|enum|sum|union|type)\s+' + re.escape(word) + r'\b[^:]*)', text, re.MULTILINE)
+    if type_match:
+        type_def = type_match.group(1).strip()
+        return {
+            "contents": {
+                "kind": "markdown",
+                "value": f"```c4\n{type_def}\n```"
+            }
+        }
+        
+    return None
+
+def check_line_words(expr_str, line_idx, globals_declared, local_scope, diagnostics):
+    expr_str = re.sub(r'->[a-zA-Z_][a-zA-Z0-9_]*', '', expr_str)
+    expr_str = re.sub(r'\.[a-zA-Z_][a-zA-Z0-9_]*', '', expr_str)
+    
+    words = re.finditer(r'\b[a-zA-Z_][a-zA-Z0-9_]*(?:::[a-zA-Z_][a-zA-Z0-9_]*)*\b', expr_str)
+    for m in words:
+        word = m.group(0)
+        
+        if word in C4_KEYWORDS or word in C4_TYPES:
+            continue
+            
+        if "::" in word:
+            parts = word.split("::")
+            base = parts[0]
+            if base not in globals_declared and word not in globals_declared:
+                diagnostics.append({
+                    "range": {
+                        "start": {"line": line_idx, "character": m.start()},
+                        "end": {"line": line_idx, "character": m.end()}
+                    },
+                    "severity": 1,
+                    "message": f"Undeclared module or symbol '{word}'"
+                })
+            continue
+            
+        if word not in globals_declared and word not in local_scope:
+            diagnostics.append({
+                "range": {
+                    "start": {"line": line_idx, "character": m.start()},
+                    "end": {"line": line_idx, "character": m.end()}
+                },
+                "severity": 1,
+                "message": f"Undeclared variable '{word}'"
+            })
+
+def check_diagnostics(uri):
+    text = vfs.get(uri, "")
+    diagnostics = []
+    
+                                          
+    globals_declared = set(C4_KEYWORDS + C4_TYPES + ["printf", "malloc", "free"])
+    
+                        
+    funcs = re.findall(r'\bfn\s+([a-zA-Z_][a-zA-Z0-9_]*)\b', text)
+    globals_declared.update(funcs)
+    
+                               
+    types_declared = re.findall(r'\b(?:struct|enum|sum|union|type)\s+([a-zA-Z_][a-zA-Z0-9_]*)\b', text)
+    globals_declared.update(types_declared)
+    
+           
+    impls = re.findall(r'\bimpl\s+([a-zA-Z_][a-zA-Z0-9_]*)\b', text)
+    globals_declared.update(impls)
+    
+                           
+    imports = re.findall(r'\buse\s+([a-zA-Z0-9_:]+)\s+as\s+([a-zA-Z_][a-zA-Z0-9_]*)\b', text)
+    for mod_path, alias in imports:
+        globals_declared.add(alias)
+        imported_symbols = get_imported_symbols(uri, mod_path)
+        for sym in imported_symbols:
+            globals_declared.add(f"{alias}::{sym}")
+            
+                                
+    global_vars = re.findall(r'^(?:pub\s+)?(?:const\s+)?([a-zA-Z0-9_<>*\[\]:]+)\s*(\*+)?\s*([a-zA-Z_][a-zA-Z0-9_]*)\b', text, re.MULTILINE)
+    for t_name, stars, var_name in global_vars:
+        if t_name not in C4_KEYWORDS:
+            globals_declared.add(var_name)
+            
+                                                                    
+    lines = text.splitlines()
+    in_function = False
+    in_impl = False
+    local_scope = set()
+    block_depth = 0
+    impl_depth = 0
+    
+    for idx, line in enumerate(lines):
+        clean_line = re.sub(r'//.*$', '', line)
+        clean_line = re.sub(r'".*?"', '', clean_line)
+        clean_line = re.sub(r"'.*?'", '', clean_line)
+                                                                                  
+        clean_line = re.sub(r'@[a-zA-Z_][a-zA-Z0-9_]*', '', clean_line)
+        clean_line_stripped = clean_line.strip()
+        
+        if not clean_line_stripped:
+            continue
+            
+                                     
+        if not in_impl:
+            impl_match = re.match(r'^\s*impl\s+([a-zA-Z_][a-zA-Z0-9_]*)', clean_line)
+            if impl_match:
+                in_impl = True
+                impl_depth = 1
+                continue
+        else:
+            if not in_function:
+                if clean_line_stripped.endswith(":") and clean_line_stripped != ":":
+                    impl_depth += 1
+                elif clean_line_stripped == ":":
+                    impl_depth -= 1
+                    if impl_depth == 0:
+                        in_impl = False
+                        continue
+                        
+        if not in_function:
+                                                             
+            fn_match = re.match(r'^\s*(?:pub\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)[^:]*:\s*$', clean_line)
+            if fn_match:
+                in_function = True
+                block_depth = 1
+                local_scope = set()
+                                                                                
+                if in_impl:
+                    local_scope.add("self")
+                    
+                arg_list = fn_match.group(2)
+                args = arg_list.split(",")
+                for arg in args:
+                    words_in_arg = re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', arg)
+                    if words_in_arg:
+                        local_scope.add(words_in_arg[-1])
+                continue
+        else:
+                                    
+            if clean_line_stripped.endswith(":") and clean_line_stripped != ":":
+                block_depth += 1
+            elif clean_line_stripped == ":":
+                block_depth -= 1
+                if block_depth == 0:
+                    in_function = False
+                    continue
+            
+                                                                             
+            if clean_line_stripped.endswith(":") and clean_line_stripped != ":":
+                is_control = any(clean_line_stripped.startswith(kw) for kw in ["if", "elif", "while", "loop", "match", "fn", "pub", "struct", "enum", "sum", "union", "impl"])
+                if not is_control:
+                    matches_paren = re.search(r'\((.*?)\)', clean_line_stripped)
+                    if matches_paren:
+                        binds = re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', matches_paren.group(1))
+                        local_scope.update(binds)
+                    matches_brace = re.search(r'\{(.*?)\}', clean_line_stripped)
+                    if matches_brace:
+                        parts = matches_brace.group(1).split(",")
+                        for part in parts:
+                            words_in_part = re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', part)
+                            if words_in_part:
+                                local_scope.add(words_in_part[-1])
+            
+                                                 
+            decl_match = re.match(r'^\s*([a-zA-Z0-9_<>*\[\]:]+)\s*(\*+)?\s*([a-zA-Z_][a-zA-Z0-9_]*)(?:\s*=\s*(.+))?$', clean_line_stripped)
+            if decl_match:
+                t_name = decl_match.group(1) + (decl_match.group(2) or "")
+                var_name = decl_match.group(3)
+                is_type = (t_name in C4_TYPES or 
+                           t_name in types_declared or 
+                           t_name[0].isupper() or 
+                           '*' in t_name or 
+                           '[' in t_name or 
+                           '<' in t_name or
+                           '::' in t_name)                                            
+                if is_type:
+                    local_scope.add(var_name)
+                    check_expr = decl_match.group(4) or ""
+                    check_line_words(check_expr, idx, globals_declared, local_scope, diagnostics)
+                    continue
+                    
+            check_line_words(clean_line, idx, globals_declared, local_scope, diagnostics)
+            
+    return diagnostics
+
+def publish_diagnostics(uri):
+    diagnostics = check_diagnostics(uri)
+    resp = {
+        "jsonrpc": "2.0",
+        "method": "textDocument/publishDiagnostics",
+        "params": {
+            "uri": uri,
+            "diagnostics": diagnostics
+        }
+    }
+    resp_data = json.dumps(resp)
+    resp_bytes = resp_data.encode('utf-8')
+                                                                                           
+    sys.stdout.buffer.write(f"Content-Length: {len(resp_bytes)}\r\n\r\n".encode('utf-8') + resp_bytes)
+    sys.stdout.buffer.flush()
+
+def main():
+    log("C4 LSP Server running...")
+    try:
+                                                   
+        stdin_buffer = sys.stdin.buffer
+        while True:
+                             
+            headers = {}
+            while True:
+                line_bytes = stdin_buffer.readline()
+                if not line_bytes:
+                    return
+                line = line_bytes.decode('utf-8').strip()
+                if not line:
+                    break
+                if ":" in line:
+                    k, v = line.split(":", 1)
+                    headers[k.strip().lower()] = v.strip()
+                    
+            content_length = int(headers.get("content-length", 0))
+            if content_length == 0:
+                continue
+                
+                                                                         
+            payload_bytes = stdin_buffer.read(content_length)
+            if not payload_bytes:
+                return
+                
+            payload_data = payload_bytes.decode('utf-8')
+            request = json.loads(payload_data)
+            method = request.get("method")
+            req_id = request.get("id")
+            params = request.get("params", {})
+            
+            response_result = None
+            has_response = False
+            
+            if method == "initialize":
+                has_response = True
+                response_result = {
+                    "capabilities": {
+                        "textDocumentSync": 1,
+                        "completionProvider": {
+                            "resolveProvider": False,
+                            "triggerCharacters": ["@", ".", ">"]
+                        },
+                        "hoverProvider": True
+                    }
+                }
+            elif method == "initialized":
+                pass
+            elif method == "textDocument/didOpen":
+                doc = params.get("textDocument", {})
+                uri = doc.get("uri")
+                text = doc.get("text", "")
+                vfs[uri] = text
+                publish_diagnostics(uri)
+            elif method == "textDocument/didChange":
+                doc = params.get("textDocument", {})
+                uri = doc.get("uri")
+                changes = params.get("contentChanges", [])
+                if changes:
+                    vfs[uri] = changes[0].get("text", "")
+                publish_diagnostics(uri)
+            elif method == "textDocument/completion":
+                has_response = True
+                doc = params.get("textDocument", {})
+                uri = doc.get("uri")
+                pos = params.get("position", {})
+                line = pos.get("line", 0)
+                char = pos.get("character", 0)
+                response_result = get_completions(uri, line, char)
+            elif method == "textDocument/hover":
+                has_response = True
+                doc = params.get("textDocument", {})
+                uri = doc.get("uri")
+                pos = params.get("position", {})
+                line = pos.get("line", 0)
+                char = pos.get("character", 0)
+                response_result = get_hover(uri, line, char)
+            elif method == "shutdown":
+                has_response = True
+                response_result = None
+            elif method == "exit":
+                break
+                
+                               
+            if has_response and req_id is not None:
+                resp = {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": response_result
+                }
+                resp_data = json.dumps(resp)
+                resp_bytes = resp_data.encode('utf-8')
+                sys.stdout.buffer.write(f"Content-Length: {len(resp_bytes)}\r\n\r\n".encode('utf-8') + resp_bytes)
+                sys.stdout.buffer.flush()
+                
+    except Exception as e:
+        log(f"Error in LSP: {e}")
+
+if __name__ == "__main__":
+    main()

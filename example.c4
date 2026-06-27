@@ -1,0 +1,76 @@
+use std::io as io
+use std::vector::Vector as Vec
+
+foreign "C" :
+    fn printf(const char* fmt, ...) -> i32
+    fn malloc(u64 size) -> void*
+    fn free(void* ptr) -> void
+:
+
+pub struct Point<T> :
+    pub T x
+    pub T y
+:
+
+pub enum Color :
+    Red = 1
+    Green
+    Blue
+:
+
+pub sum Option<T> :
+    None
+    Some(T)
+:
+
+pub sum Shape :
+    Circle(f32)
+    Rectangle{f32 width, f32 height}
+:
+
+impl Point<i32> :
+    pub fn new(i32 x, i32 y) -> Point<i32> :
+        return Point { x, y }
+    :
+
+    pub fn print(Point<i32>* self) -> void :
+        printf("Point: (%d, %d)\n", self->x, self->y)
+    :
+:
+
+pub fn main() -> i32 :
+    i32 a = 10
+    Option<str> name = Option::Some("C4 Language")
+
+    match name :
+        Option::Some(val) :
+            printf("Found name: %s\n", val)
+        :
+        Option::None :
+            printf("No name found\n")
+        :
+    :
+
+    i32* ptr = malloc(sizeof(i32)) as i32*
+    if ptr != null :
+        ptr @write(42)
+        i32 val = ptr @read()
+        printf("Stored value: %d\n", val)
+        
+        i32* next = ptr @advance(1)
+        free(ptr as void*)
+    :
+
+    while a > 0 :
+        a = a - 1
+        if a == 5 :
+            continue
+        :
+    :
+
+    loop :
+        break
+    :
+
+    return 0
+:

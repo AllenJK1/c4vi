@@ -1,0 +1,37 @@
+" Maintainer: Allen
+
+set nocompatible
+filetype off
+
+let s:c4_plugin_dir = expand('<sfile>:p:h:h')
+
+execute 'set runtimepath+=' . fnameescape(s:c4_plugin_dir)
+
+filetype plugin indent on
+syntax enable
+
+set number
+set tabstop=4
+set shiftwidth=4
+set expandtab
+set autoindent
+set smartindent
+set hlsearch
+set incsearch
+set ignorecase
+set smartcase
+set backspace=indent,eol,start
+set laststatus=2
+set ruler
+
+set completeopt=menu,menuone,noselect,noinsert
+
+if has('termguicolors')
+    set termguicolors
+endif
+silent! colorscheme c4_theme
+
+if has('nvim')
+  execute 'luafile ' . fnameescape(s:c4_plugin_dir . '/vimconfigs/lsp.lua')
+  execute 'lua RegisterC4Lsp(' . string(s:c4_plugin_dir) . ')'
+endif
