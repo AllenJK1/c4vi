@@ -79,9 +79,9 @@ def get_current_func(text, cursor_line):
                 func_name = fn_match.group(1)
                 block_depth = 1
         else:
-            if clean_line_stripped.endswith(":") and clean_line_stripped != ":":
+            if clean_line_stripped.endswith("{") and clean_line_stripped != "{":
                 block_depth += 1
-            elif clean_line_stripped == ":":
+            elif clean_line_stripped == "}":
                 block_depth -= 1
                 if block_depth == 0:
                     in_func = False
@@ -121,17 +121,17 @@ def resolve_var_type(text, func_name, var_name):
                         in_func = True
                         block_depth = 1
                     
-                    if clean_line_stripped.endswith(":") and clean_line_stripped != ":":
+                    if clean_line_stripped.endswith("{") and clean_line_stripped != "{":
                         impl_depth += 1
-                    elif clean_line_stripped == ":":
+                    elif clean_line_stripped == "}":
                         impl_depth -= 1
                         if impl_depth == 0:
                             in_impl = False
                             current_impl = None
                 else:
-                    if clean_line_stripped.endswith(":") and clean_line_stripped != ":":
+                    if clean_line_stripped.endswith("{") and clean_line_stripped != "{":
                         block_depth += 1
-                    elif clean_line_stripped == ":":
+                    elif clean_line_stripped == "}":
                         block_depth -= 1
                         if block_depth == 0:
                             in_func = False
@@ -159,9 +159,9 @@ def resolve_var_type(text, func_name, var_name):
                     if words_in_arg and words_in_arg[-1] == var_name:
                         return re.sub(r'\b' + var_name + r'\b', '', arg).strip()
         else:
-            if clean_line_stripped.endswith(":") and clean_line_stripped != ":":
+            if clean_line_stripped.endswith("{") and clean_line_stripped != "{":
                 block_depth += 1
-            elif clean_line_stripped == ":":
+            elif clean_line_stripped == "}":
                 block_depth -= 1
                 if block_depth == 0:
                     break
@@ -197,9 +197,9 @@ def parse_impls_in_text(text, base_type):
                 in_impl = True
                 block_depth = 1
         else:
-            if clean_line_stripped.endswith(":") and clean_line_stripped != ":":
+            if clean_line_stripped.endswith("{") and clean_line_stripped != "{":
                 block_depth += 1
-            elif clean_line_stripped == ":":
+            elif clean_line_stripped == "}":
                 block_depth -= 1
                 if block_depth == 0:
                     in_impl = False
@@ -336,10 +336,10 @@ def get_hover(uri, line, char):
         }
         
                                                    
-    fn_sig_match = re.search(r'^\s*(?:pub\s+)?(fn\s+' + re.escape(word) + r'\s*\(.*?\)[^:]*:\s*$)', text, re.MULTILINE)
+    fn_sig_match = re.search(r'^\s*(?:pub\s+)?(fn\s+' + re.escape(word) + r'\s*\(.*?\)[^{]*{\s*$)', text, re.MULTILINE)
     if fn_sig_match:
         sig = fn_sig_match.group(1).strip()
-        sig = re.sub(r'\s*:\s*$', '', sig)                           
+        sig = re.sub(r'\s*\{\s*$', '', sig)                           
         return {
             "contents": {
                 "kind": "markdown",
@@ -360,7 +360,7 @@ def get_hover(uri, line, char):
             }
             
                                                                     
-    type_match = re.search(r'^\s*(?:pub\s+)?((?:struct|enum|sum|union|type)\s+' + re.escape(word) + r'\b[^:]*)', text, re.MULTILINE)
+    type_match = re.search(r'^\s*(?:pub\s+)?((?:struct|enum|sum|union|type)\s+' + re.escape(word) + r'\b[^{]*)', text, re.MULTILINE)
     if type_match:
         type_def = type_match.group(1).strip()
         return {
@@ -468,9 +468,9 @@ def check_diagnostics(uri):
                 continue
         else:
             if not in_function:
-                if clean_line_stripped.endswith(":") and clean_line_stripped != ":":
+                if clean_line_stripped.endswith("{") and clean_line_stripped != "{":
                     impl_depth += 1
-                elif clean_line_stripped == ":":
+                elif clean_line_stripped == "}":
                     impl_depth -= 1
                     if impl_depth == 0:
                         in_impl = False
@@ -478,7 +478,7 @@ def check_diagnostics(uri):
                         
         if not in_function:
                                                              
-            fn_match = re.match(r'^\s*(?:pub\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)[^:]*:\s*$', clean_line)
+            fn_match = re.match(r'^\s*(?:pub\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)[^{]*{\s*$', clean_line)
             if fn_match:
                 in_function = True
                 block_depth = 1
@@ -496,16 +496,16 @@ def check_diagnostics(uri):
                 continue
         else:
                                     
-            if clean_line_stripped.endswith(":") and clean_line_stripped != ":":
+            if clean_line_stripped.endswith("{") and clean_line_stripped != "{":
                 block_depth += 1
-            elif clean_line_stripped == ":":
+            elif clean_line_stripped == "}":
                 block_depth -= 1
                 if block_depth == 0:
                     in_function = False
                     continue
             
                                                                              
-            if clean_line_stripped.endswith(":") and clean_line_stripped != ":":
+            if clean_line_stripped.endswith("{") and clean_line_stripped != "{":
                 is_control = any(clean_line_stripped.startswith(kw) for kw in ["if", "elif", "while", "loop", "match", "fn", "pub", "struct", "enum", "sum", "union", "impl"])
                 if not is_control:
                     matches_paren = re.search(r'\((.*?)\)', clean_line_stripped)

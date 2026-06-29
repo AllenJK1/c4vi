@@ -18,10 +18,6 @@ function! GetC4Indent()
   let clean_line = substitute(line, '//.*$', '', '')
   let clean_line = substitute(clean_line, '\s\+$', '', '')
 
-  if clean_line =~ ':$' && clean_line !~ '^\s*:$'
-    let ind = ind + shiftwidth()
-  endif
-
   if clean_line =~ '[[{(]$'
     let ind = ind + shiftwidth()
   endif
@@ -30,10 +26,6 @@ function! GetC4Indent()
   let clean_cur = substitute(cur_line, '//.*$', '', '')
   let clean_cur = substitute(clean_cur, '^\s\+', '', '')
   let clean_cur = substitute(clean_cur, '\s\+$', '', '')
-
-  if clean_cur == ':'
-    let ind = ind - shiftwidth()
-  endif
 
   if clean_cur =~ '^[]})]'
     let ind = ind - shiftwidth()

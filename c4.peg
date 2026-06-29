@@ -22,7 +22,7 @@ Declaration     <- UseDecl
 
 UseDecl         <- "use" _ ModulePath _ "as" _ Ident _ NEWLINE
 
-ForeignDecl     <- "foreign" _ StringLiteral _ ":" _ ForeignItem* _ ":"
+ForeignDecl     <- "foreign" _ StringLiteral _ "{" _ ForeignItem* _ "}"
 
 ForeignItem     <- "fn" _ Ident _ "(" _ ForeignArgList? _ ")" _ ("->" _ Type _)? NEWLINE
 
@@ -31,23 +31,23 @@ ForeignArgList  <- ForeignArg _ ("," _ ForeignArg _)*  ("," _ "..." _)?
 
 ForeignArg      <- "const"? _ Type _ Ident?
 
-FunctionDecl    <- "pub"? _ "fn" _ Ident _ GenericParams? _ "(" _ FunctionArgList? _ ")" _ ("->" _ Type _)? ":" _ Block _ ":"
+FunctionDecl    <- "pub"? _ "fn" _ Ident _ GenericParams? _ "(" _ FunctionArgList? _ ")" _ ("->" _ Type _)? "{" _ Block _ "}"
 
 FunctionArgList <- FunctionArg _ ("," _ FunctionArg _)*
 
 FunctionArg     <- Type _ Ident
 
-StructDecl      <- "pub"? _ "struct" _ Ident _ GenericParams? _ ":" _ StructProperty* _ ":"
+StructDecl      <- "pub"? _ "struct" _ Ident _ GenericParams? _ "{" _ StructProperty* _ "}"
 
 StructProperty  <- "pub"? _ Type _ Ident _ NEWLINE
 
-UnionDecl       <- "pub"? _ "union" _ Ident _ ":" _ StructProperty* _ ":"
+UnionDecl       <- "pub"? _ "union" _ Ident _ "{" _ StructProperty* _ "}"
 
-EnumDecl        <- "pub"? _ "enum" _ Ident _ ":" _ EnumConstant* _ ":"
+EnumDecl        <- "pub"? _ "enum" _ Ident _ "{" _ EnumConstant* _ "}"
 
 EnumConstant    <- Ident _ ("=" _ Expression _)? NEWLINE
 
-SumDecl         <- "pub"? _ "sum" _ Ident _ ":" _ SumVariant* _ ":"
+SumDecl         <- "pub"? _ "sum" _ Ident _ "{" _ SumVariant* _ "}"
 
 SumVariant      <- Ident _ SumVariantBody? _ NEWLINE
 
@@ -58,7 +58,7 @@ SumTupleField   <- Type
 
 SumNamedField   <- Type _ Ident
 
-ImplDecl        <- "impl" _ Ident _ GenericParams? _ ":" _ FunctionDecl* _ ":"
+ImplDecl        <- "impl" _ Ident _ GenericParams? _ "{" _ FunctionDecl* _ "}"
 
 TypeDecl        <- "pub"? _ "type" _ Ident _ "=" _ Type _ NEWLINE
 
@@ -123,21 +123,21 @@ BreakStmt       <- "break" _ NEWLINE
 
 ContinueStmt    <- "continue" _ NEWLINE
 
-WhileStmt       <- "while" _ Expression _ ":" _ Block _ ":"
+WhileStmt       <- "while" _ Expression _ "{" _ Block _ "}"
 
-LoopStmt        <- "loop" _ ":" _ Block _ ":"
+LoopStmt        <- "loop" _ "{" _ Block _ "}"
 
-IfStmt          <- "if" _ Expression _ ":" _ Block _ ":"
+IfStmt          <- "if" _ Expression _ "{" _ Block _ "}"
                    ElifClause*
                    ElseClause?
 
-ElifClause      <- "elif" _ Expression _ ":" _ Block _ ":"
+ElifClause      <- "elif" _ Expression _ "{" _ Block _ "}"
 
-ElseClause      <- "else" _ ":" _ Block _ ":"
+ElseClause      <- "else" _ "{" _ Block _ "}"
 
-MatchStmt       <- "match" _ Expression _ ":" _ MatchArm* _ ":"
+MatchStmt       <- "match" _ Expression _ "{" _ MatchArm* _ "}"
 
-MatchArm        <- MatchPattern _ ":" _ Block _ ":"
+MatchArm        <- MatchPattern _ "{" _ Block _ "}"
 
 MatchPattern    <- PathExpr _ ("(" _ MatchBindList? _ ")")?
                  / "_"
