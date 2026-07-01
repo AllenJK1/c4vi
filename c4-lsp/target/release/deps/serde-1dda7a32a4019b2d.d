@@ -1,0 +1,14 @@
+/home/lord-allen/experiments/c4vi/c4-lsp/target/release/deps/serde-1dda7a32a4019b2d.d: /home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/lord-allen/experiments/c4vi/c4-lsp/target/release/build/serde-f022972b95498396/out/private.rs
+
+/home/lord-allen/experiments/c4vi/c4-lsp/target/release/deps/libserde-1dda7a32a4019b2d.rlib: /home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/lord-allen/experiments/c4vi/c4-lsp/target/release/build/serde-f022972b95498396/out/private.rs
+
+/home/lord-allen/experiments/c4vi/c4-lsp/target/release/deps/libserde-1dda7a32a4019b2d.rmeta: /home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/lord-allen/experiments/c4vi/c4-lsp/target/release/build/serde-f022972b95498396/out/private.rs
+
+/home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/home/lord-allen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/home/lord-allen/experiments/c4vi/c4-lsp/target/release/build/serde-f022972b95498396/out/private.rs:
+
+# env-dep:OUT_DIR=/home/lord-allen/experiments/c4vi/c4-lsp/target/release/build/serde-f022972b95498396/out

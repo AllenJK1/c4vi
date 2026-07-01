@@ -3,7 +3,7 @@ local function load_config(plugin_dir)
   local default_config = {
     autocomplete_enabled = true,
     auto_trigger = true,
-    trigger_on_methods_only = false,
+    trigger_mode = 'both',
     map_tab_complete = false
   }
   
@@ -70,8 +70,12 @@ local function setup_c4_buffer(bufnr, plugin_dir)
                 local before = line:sub(1, col - 1)
                 
                 local should_trigger = false
-                if config.trigger_on_methods_only then
-                  if before:match('%.]$') or before:match('%->$') then
+                if config.trigger_mode == "methods" then
+                  if before:match('%.[%w_]*$') or before:match('%->[%w_]*$') then
+                    should_trigger = true
+                  end
+                elseif config.trigger_mode == "words" then
+                  if before:match('[%a_@]$') then
                     should_trigger = true
                   end
                 else
